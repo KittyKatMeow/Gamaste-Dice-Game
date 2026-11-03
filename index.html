@@ -50,6 +50,12 @@ canvas{display:block;touch-action:none}
 
 #final{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#0a0d12e8;backdrop-filter:blur(6px);padding:16px;text-align:center}
 #final.hidden{display:none}
+#tutorial{position:fixed;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:#080b12df;backdrop-filter:blur(10px)}
+#tutorial.hidden{display:none}
+.tutorial-card{width:min(520px,100%);padding:clamp(24px,5vw,40px);border:1px solid #ffffff2b;border-radius:26px;background:radial-gradient(ellipse at 50% 0%,#303d52,#171d27 68%);box-shadow:0 28px 90px #000b;text-align:center}
+.tutorial-card h2{margin:0 0 12px;font-size:clamp(34px,8vw,58px);font-weight:950;letter-spacing:-.04em;background:linear-gradient(90deg,#ff6472,#ffd36b,#62a3ff);color:transparent;background-clip:text;-webkit-background-clip:text}
+.tutorial-card p{margin:12px 0;color:#e3e8f1;font-size:clamp(16px,3.4vw,20px);line-height:1.5}.tutorial-card p strong{color:#ffd36b}
+.tutorial-card .btn{margin-top:12px}
 #ftitle{font-weight:900;font-size:clamp(44px,9vw,120px);line-height:1}
 #ftitle.red{color:var(--red);text-shadow:0 0 60px #e8414bb0}#ftitle.blue{color:var(--blue);text-shadow:0 0 60px #2f7cf0b0}
 #fscores{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
@@ -102,6 +108,14 @@ canvas{display:block;touch-action:none}
     <div class="fs blue"><div class="n">BLUE</div><div class="t">0</div><div class="r"></div></div>
   </div>
   <button class="btn roll" id="again">PLAY AGAIN</button>
+</div>
+<div id="tutorial" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+  <div class="tutorial-card">
+    <h2 id="tutorial-title">Dicey Duel!</h2>
+    <p>2 players. 3 dice each. 3 rounds. Most points wins!</p>
+    <p>Reroll one of your dice—or skip to reroll an opponent’s die after both players choose. Round winner gets <strong>5 bonus points</strong>.</p>
+    <button class="btn roll" id="tutorial-start">LET’S ROLL</button>
+  </div>
 </div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -497,6 +511,7 @@ function showFinal() {
   document.getElementById('final').classList.remove('hidden');
 }
 document.getElementById('again').onclick = resetGame;
+document.getElementById('tutorial-start').onclick = () => document.getElementById('tutorial').classList.add('hidden');
 
 // ---------- UI ----------
 const $inst = document.getElementById('inst'), $sub = document.getElementById('sub');
