@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dice Duel</title>
+<style>
+:root{--red:#e8414b;--blue:#2f7cf0;--bg:#0f131a;--ink:#f4f6fb}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,#1f2a3a,var(--bg) 70%);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+canvas{display:block;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;padding:14px 16px 0;gap:8px}
+#round{font-weight:800;letter-spacing:.25em;font-size:14px;opacity:.7}
+#inst{font-weight:900;font-size:clamp(26px,5.2vw,68px);line-height:1.05;text-align:center;padding:.18em .6em;border-radius:.4em;max-width:min(1100px,94vw);transition:background .25s,box-shadow .25s;text-transform:uppercase;letter-spacing:.01em}
+#inst.red{background:var(--red);box-shadow:0 0 50px #e8414b99}
+#inst.blue{background:var(--blue);box-shadow:0 0 50px #2f7cf099}
+#inst.both{background:linear-gradient(90deg,var(--red),var(--blue));box-shadow:0 0 50px #8a5ac080}
+#inst.neutral{background:#ffffff14}
+#sub{font-weight:800;font-size:clamp(16px,2.2vw,26px);min-height:1.2em;color:#ffd36b}
+
+.panel{position:absolute;top:50%;width:170px;padding:16px 12px;border-radius:20px;text-align:center;background:#161c26e6;border:3px solid #ffffff18;transform:translateY(-50%) scale(.94);opacity:.5;transition:all .25s}
+#p-red{left:16px}#p-blue{right:16px}
+.panel.active{opacity:1;transform:translateY(-50%) scale(1.06)}
+#p-red.active{border-color:var(--red);box-shadow:0 0 0 4px #e8414b40,0 0 60px #e8414b90;background:#3a161be6}
+#p-blue.active{border-color:var(--blue);box-shadow:0 0 0 4px #2f7cf040,0 0 60px #2f7cf090;background:#13233ee6}
+.pname{font-weight:900;font-size:24px;letter-spacing:.14em}
+#p-red .pname{color:var(--red)}#p-blue .pname{color:var(--blue)}
+.ptotal{font-weight:900;font-size:64px;line-height:1;margin-top:6px}
+.plabel{font-size:11px;letter-spacing:.25em;opacity:.55;font-weight:700}
+.pdice{margin-top:12px;font-weight:800;font-size:20px;padding:6px 0;border-radius:10px;background:#ffffff10}
+.pdice b{font-size:28px}
+.prounds{display:flex;gap:6px;margin-top:12px}
+.prounds div{flex:1;border-radius:8px;padding:4px 0;background:#ffffff0d;font-weight:800;font-size:18px}
+.prounds div small{display:block;font-size:10px;opacity:.5;letter-spacing:.1em}
+.prounds div.cur{outline:2px solid #ffffff55}
+.pop{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-weight:900;font-size:40px;color:#ffd36b;text-shadow:0 2px 10px #000;animation:pop 1.6s ease-out forwards;pointer-events:none}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,20px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1.15)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50px) scale(1)}}
+
+#actions{position:absolute;left:0;right:0;bottom:max(22px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:18px;padding:0 16px}
+.btn{pointer-events:auto;border:0;cursor:pointer;color:#fff;font-weight:900;letter-spacing:.06em;border-radius:18px;font-size:clamp(17px,2.3vw,26px);transition:transform .1s,filter .15s;box-shadow:0 8px 24px #0007}
+.btn:hover{filter:brightness(1.12);transform:translateY(-2px)}
+.btn:active{transform:translateY(1px)}
+.btn.pair{width:clamp(150px,30vw,330px);height:clamp(64px,10vh,92px)}
+.btn.roll{width:clamp(220px,34vw,380px);height:clamp(72px,11vh,100px);font-size:clamp(26px,3.4vw,40px);background:linear-gradient(90deg,var(--red),var(--blue))}
+.btn.small{height:48px;padding:0 28px;font-size:16px;background:#ffffff1f}
+.btn.c-red{background:var(--red)}.btn.c-blue{background:var(--blue)}
+.btn.c-gray{background:#3a4352}
+.btn.c-gold{background:#e0a91e;color:#1a1300}
+
+#final{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#0a0d12e8;backdrop-filter:blur(6px);padding:16px;text-align:center}
+#final.hidden{display:none}
+#ftitle{font-weight:900;font-size:clamp(44px,9vw,120px);line-height:1}
+#ftitle.red{color:var(--red);text-shadow:0 0 60px #e8414bb0}#ftitle.blue{color:var(--blue);text-shadow:0 0 60px #2f7cf0b0}
+#fscores{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.fs{width:clamp(150px,26vw,250px);padding:22px 12px;border-radius:24px;background:#ffffff0d;border:3px solid #ffffff20;opacity:.6;transition:all .3s}
+.fs .n{font-weight:900;letter-spacing:.15em;font-size:22px}
+.fs .t{font-weight:900;font-size:clamp(56px,8vw,96px);line-height:1.05}
+.fs .r{opacity:.6;font-weight:700}
+.fs.red .n{color:var(--red)}.fs.blue .n{color:var(--blue)}
+.fs.win{opacity:1;transform:scale(1.12)}
+.fs.red.win{border-color:var(--red);box-shadow:0 0 70px #e8414b90}
+.fs.blue.win{border-color:var(--blue);box-shadow:0 0 70px #2f7cf090}
+.fs.tie{opacity:1}
+
+@media (max-width:760px){
+  .panel{top:auto;bottom:134px;width:calc(50% - 24px);padding:8px;transform:scale(.96)}
+  .panel.active{transform:scale(1)}
+  .ptotal{font-size:38px}.pname{font-size:17px}.pdice{margin-top:6px;font-size:15px}.pdice b{font-size:20px}
+  .prounds{margin-top:6px}.prounds div{font-size:14px}
+  #actions{gap:12px}
+}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="top">
+    <div id="round">ROUND 1 / 3</div>
+    <div id="inst" class="both">ROLL THE DICE</div>
+    <div id="sub"></div>
+  </div>
+  <div class="panel" id="p-red">
+    <div class="pname">RED</div>
+    <div class="ptotal">0</div>
+    <div class="plabel">POINTS</div>
+    <div class="pdice">DICE <b>–</b></div>
+    <div class="prounds"></div>
+  </div>
+  <div class="panel" id="p-blue">
+    <div class="pname">BLUE</div>
+    <div class="ptotal">0</div>
+    <div class="plabel">POINTS</div>
+    <div class="pdice">DICE <b>–</b></div>
+    <div class="prounds"></div>
+  </div>
+  <div id="actions"></div>
+</div>
+<div id="final" class="hidden">
+  <div id="ftitle"></div>
+  <div id="fscores">
+    <div class="fs red"><div class="n">RED</div><div class="t">0</div><div class="r"></div></div>
+    <div class="fs blue"><div class="n">BLUE</div><div class="t">0</div><div class="r"></div></div>
+  </div>
+  <button class="btn roll" id="again">PLAY AGAIN</button>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// ---------- constants ----------
+const COLORS = { red: '#d8323c', blue: '#2a6fe0' };
+const NAME = { red: 'RED', blue: 'BLUE' };
+const other = p => p === 'red' ? 'blue' : 'red';
+const TABLE = { hx: 8, hz: 4.6 };
+const BOUNDS = { red: { minX: -TABLE.hx, maxX: -0.2 }, blue: { minX: 0.2, maxX: TABLE.hx } };
+const G = -40, STEP = 1 / 240, INV_M = 1, INV_I = 6, MU = 0.45;
+const MIN_D = 1.12, DRAG_Y = 1.3, FLICK_SPEED = 13;
+const UP = new THREE.Vector3(0, 1, 0);
+// BoxGeometry material order: +x,-x,+y,-y,+z,-z
+const FACE_VALUES = [1, 6, 2, 5, 3, 4];
+const FACE_N = {
+  1: new THREE.Vector3(1, 0, 0), 6: new THREE.Vector3(-1, 0, 0),
+  2: new THREE.Vector3(0, 1, 0), 5: new THREE.Vector3(0, -1, 0),
+  3: new THREE.Vector3(0, 0, 1), 4: new THREE.Vector3(0, 0, -1),
+};
+const CORNERS = [];
+for (const x of [-.5, .5]) for (const y of [-.5, .5]) for (const z of [-.5, .5]) CORNERS.push(new THREE.Vector3(x, y, z));
+const PLANES = {};
+for (const p of ['red', 'blue']) {
+  const b = BOUNDS[p];
+  // signed distance = n·p - o
+  PLANES[p] = [
+    { n: new THREE.Vector3(0, 1, 0), o: 0, floor: true },
+    { n: new THREE.Vector3(1, 0, 0), o: b.minX },
+    { n: new THREE.Vector3(-1, 0, 0), o: -b.maxX },
+    { n: new THREE.Vector3(0, 0, 1), o: -TABLE.hz },
+    { n: new THREE.Vector3(0, 0, -1), o: -TABLE.hz },
+  ];
+}
+const rand = (a, b) => a + Math.random() * (b - a);
+
+// ---------- renderer / scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1f28, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(-4, 14, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 8, bottom: -8, near: 1, far: 40 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const table = new THREE.Mesh(
+  new THREE.BoxGeometry(TABLE.hx * 2 + 0.8, 0.4, TABLE.hz * 2 + 0.8),
+  new THREE.MeshStandardMaterial({ color: 0x252e3b, roughness: 0.95 }));
+table.position.y = -0.2;
+table.receiveShadow = true;
+scene.add(table);
+
+const halves = {};
+for (const p of ['red', 'blue']) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(TABLE.hx - 0.2, TABLE.hz * 2),
+    new THREE.MeshBasicMaterial({ color: COLORS[p], transparent: true, opacity: 0.08, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set((p === 'red' ? -1 : 1) * (TABLE.hx / 2 + 0.1), 0.004, 0);
+  scene.add(m);
+  halves[p] = m;
+}
+const railMat = new THREE.MeshStandardMaterial({ color: 0x3a4454, roughness: 0.7 });
+for (const [w, d, x, z] of [
+  [TABLE.hx * 2 + 0.8, 0.4, 0, TABLE.hz + 0.2], [TABLE.hx * 2 + 0.8, 0.4, 0, -TABLE.hz - 0.2],
+  [0.4, TABLE.hz * 2, TABLE.hx + 0.2, 0], [0.4, TABLE.hz * 2, -TABLE.hx - 0.2, 0]]) {
+  const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), railMat);
+  r.position.set(x, 0.25, z); r.castShadow = r.receiveShadow = true; scene.add(r);
+}
+const divider = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, TABLE.hz * 2),
+  new THREE.MeshStandardMaterial({ color: 0xcfd6e2, roughness: 0.5 }));
+divider.position.y = 0.11; divider.castShadow = true; scene.add(divider);
+
+// ---------- dice ----------
+const PIPS = {
+  1: [[.5, .5]], 2: [[.27, .27], [.73, .73]], 3: [[.27, .27], [.5, .5], [.73, .73]],
+  4: [[.27, .27], [.73, .27], [.27, .73], [.73, .73]],
+  5: [[.27, .27], [.73, .27], [.5, .5], [.27, .73], [.73, .73]],
+  6: [[.27, .24], [.73, .24], [.27, .5], [.73, .5], [.27, .76], [.73, .76]],
+};
+function faceTexture(n, color) {
+  const s = 256, c = document.createElement('canvas');
+  c.width = c.height = s;
+  const g = c.getContext('2d');
+  g.fillStyle = color; g.fillRect(0, 0, s, s);
+  const grd = g.createRadialGradient(s * .4, s * .35, 10, s / 2, s / 2, s * .75);
+  grd.addColorStop(0, 'rgba(255,255,255,.18)'); grd.addColorStop(1, 'rgba(0,0,0,.12)');
+  g.fillStyle = grd; g.fillRect(0, 0, s, s);
+  const r = n === 1 ? 30 : 22;
+  for (const [x, y] of PIPS[n]) {
+    g.beginPath(); g.arc(x * s, y * s - 2, r + 1, 0, Math.PI * 2); g.fillStyle = 'rgba(0,0,0,.35)'; g.fill();
+    g.beginPath(); g.arc(x * s, y * s + 1, r, 0, Math.PI * 2); g.fillStyle = '#fbfbff'; g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const diceGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.12);
+const faceMats = {};
+for (const p of ['red', 'blue'])
+  faceMats[p] = FACE_VALUES.map(v => new THREE.MeshStandardMaterial({ map: faceTexture(v, COLORS[p]), roughness: 0.35 }));
+const ringGeo = new THREE.RingGeometry(0.78, 0.98, 48);
+
+const dice = [];
+for (const owner of ['red', 'blue']) for (let i = 0; i < 3; i++) {
+  const mesh = new THREE.Mesh(diceGeo, faceMats[owner]);
+  mesh.castShadow = true;
+  scene.add(mesh);
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.visible = false; scene.add(ring);
+  const d = {
+    owner, idx: i, mesh, ring, pos: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3(),
+    q: new THREE.Quaternion(), state: 'rest', value: 1, lock: null, touched: false, restT: 0, moveT: 0,
+    dragTarget: new THREE.Vector3(), snapQ: new THREE.Quaternion(), snapVal: 1, lastClack: 0,
+  };
+  mesh.userData.die = d;
+  placeHome(d);
+  dice.push(d);
+}
+function placeHome(d) {
+  const s = d.owner === 'red' ? -1 : 1;
+  d.value = 1 + Math.floor(Math.random() * 6);
+  d.q.setFromUnitVectors(FACE_N[d.value], UP)
+    .premultiply(new THREE.Quaternion().setFromAxisAngle(UP, rand(-.4, .4)));
+  d.pos.set(s * 4, 0.5, (d.idx - 1) * 2.2);
+  d.v.set(0, 0, 0); d.w.set(0, 0, 0); d.state = 'rest'; d.lock = null;
+}
+
+// ---------- physics ----------
+const _vc = new THREE.Vector3(), _rn = new THREE.Vector3(), _vt = new THREE.Vector3(), _rt = new THREE.Vector3();
+const _ti = new THREE.Vector3(), _ax = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+const _f = new THREE.Vector3(), _dx = new THREE.Vector3();
+const rs = CORNERS.map(() => new THREE.Vector3());
+
+function applyImpulse(d, r, dir, j) {
+  d.v.addScaledVector(dir, j * INV_M);
+  d.w.add(_ti.crossVectors(r, dir).multiplyScalar(j * INV_I));
+}
+function contact(d, r, n) {
+  _vc.crossVectors(d.w, r).add(d.v);
+  const vn = _vc.dot(n);
+  if (vn >= 0) return 0;
+  _rn.crossVectors(r, n);
+  const e = vn < -2.5 ? 0.35 : 0;
+  const j = -(1 + e) * vn / (INV_M + INV_I * _rn.lengthSq());
+  applyImpulse(d, r, n, j);
+  _vc.crossVectors(d.w, r).add(d.v);
+  _vt.copy(_vc).addScaledVector(n, -_vc.dot(n));
+  const vtl = _vt.length();
+  if (vtl > 1e-6) {
+    _vt.divideScalar(vtl);
+    _rt.crossVectors(r, _vt);
+    const jt = Math.min(vtl / (INV_M + INV_I * _rt.lengthSq()), MU * j);
+    applyImpulse(d, r, _vt, -jt);
+  }
+  return -vn;
+}
+function targetQuat(d, val, out) {
+  _f.copy(FACE_N[val]).applyQuaternion(d.q);
+  return out.setFromUnitVectors(_f, UP).multiply(d.q);
+}
+function nearestFace(d) {
+  let best = 1, by = -2;
+  for (const v of FACE_VALUES) {
+    const y = _f.copy(FACE_N[v]).applyQuaternion(d.q).y;
+    if (y > by) { by = y; best = v; }
+  }
+  return best;
+}
+function stepMoving(d, h) {
+  d.v.y += G * h;
+  d.pos.addScaledVector(d.v, h);
+  const a = d.w.length();
+  if (a > 1e-8) {
+    _q.setFromAxisAngle(_ax.copy(d.w).divideScalar(a), a * h);
+    d.q.premultiply(_q).normalize();
+  }
+  for (let i = 0; i < 8; i++) rs[i].copy(CORNERS[i]).applyQuaternion(d.q);
+  let floorHit = false, impact = 0;
+  const planes = PLANES[d.owner];
+  for (let it = 0; it < 3; it++) for (const pl of planes) for (const r of rs) {
+    const dist = pl.n.x * (d.pos.x + r.x) + pl.n.y * (d.pos.y + r.y) + pl.n.z * (d.pos.z + r.z) - pl.o;
+    if (dist < 0) {
+      const imp = contact(d, r, pl.n);
+      if (pl.floor) floorHit = true;
+      if (it === 0) impact = Math.max(impact, imp);
+    }
+  }
+  let minY = Infinity;
+  for (const pl of planes) {
+    let m = 0;
+    for (const r of rs) {
+      const dist = pl.n.x * (d.pos.x + r.x) + pl.n.y * (d.pos.y + r.y) + pl.n.z * (d.pos.z + r.z) - pl.o;
+      if (dist < m) m = dist;
+      if (pl.floor) minY = Math.min(minY, d.pos.y + r.y);
+    }
+    if (m < 0) d.pos.addScaledVector(pl.n, -m);
+  }
+  if (floorHit) {
+    d.touched = true;
+    d.w.multiplyScalar(Math.exp(-1.4 * h));
+    d.v.x *= Math.exp(-0.6 * h); d.v.z *= Math.exp(-0.6 * h);
+  } else d.w.multiplyScalar(Math.exp(-0.1 * h));
+  if (impact > 3) clack(Math.min(1, impact / 16), d);
+
+  // a die that was dragged/flicked steers back to its previous face so its result never changes
+  if (d.lock && d.touched && d.v.length() < 7) {
+    d.q.slerp(targetQuat(d, d.lock, _q2), 1 - Math.exp(-6 * h));
+    d.w.multiplyScalar(Math.exp(-4 * h));
+  }
+  d.moveT += h;
+  if (minY < 0.05 && d.v.length() < 0.3 && d.w.length() < 1.2) d.restT += h; else d.restT = 0;
+  if (d.restT > 0.12 || d.moveT > 7 || (d.lock && d.touched && d.moveT > 0.4 && d.v.length() < 1.2)) startSnap(d);
+}
+function startSnap(d) {
+  d.state = 'snap';
+  d.snapVal = d.lock || nearestFace(d);
+  targetQuat(d, d.snapVal, d.snapQ);
+  d.v.set(0, 0, 0); d.w.set(0, 0, 0);
+}
+function clampToHalf(d, k) {
+  const b = BOUNDS[d.owner];
+  const x = THREE.MathUtils.clamp(d.pos.x, b.minX + .55, b.maxX - .55);
+  const z = THREE.MathUtils.clamp(d.pos.z, -TABLE.hz + .55, TABLE.hz - .55);
+  d.pos.x += (x - d.pos.x) * k; d.pos.z += (z - d.pos.z) * k;
+}
+function stepSnap(d, h) {
+  const k = 1 - Math.exp(-16 * h);
+  d.q.slerp(d.snapQ, k);
+  d.pos.y += (0.5 - d.pos.y) * k;
+  clampToHalf(d, k);
+  if (d.q.angleTo(d.snapQ) < 0.003 && Math.abs(d.pos.y - 0.5) < 0.003) {
+    d.q.copy(d.snapQ); d.pos.y = 0.5;
+    d.state = 'rest'; d.value = d.snapVal; d.lock = null;
+  }
+}
+function stepDrag(d, h) {
+  d.pos.lerp(d.dragTarget, 1 - Math.exp(-25 * h));
+  clampToHalf(d, 1);
+}
+function reflect(d, n) {
+  const vn = d.v.dot(n);
+  if (vn < 0) {
+    d.v.addScaledVector(n, -1.4 * vn);
+    d.w.x += rand(-1, 1) * -vn; d.w.z += rand(-1, 1) * -vn;
+  }
+}
+function collidePairs() {
+  for (let i = 0; i < dice.length; i++) for (let j = i + 1; j < dice.length; j++) {
+    const a = dice[i], b = dice[j];
+    if (a.owner !== b.owner) continue;
+    const am = a.state === 'moving', bm = b.state === 'moving';
+    const ak = a.state === 'drag' || a.state === 'snap', bk = b.state === 'drag' || b.state === 'snap';
+    if (!am && !bm && !ak && !bk) continue;
+    _dx.subVectors(a.pos, b.pos);
+    const dist = _dx.length();
+    if (dist >= MIN_D || dist < 1e-5) continue;
+    const n = _dx.divideScalar(dist), ov = MIN_D - dist;
+    if (am && bm) {
+      a.pos.addScaledVector(n, ov / 2); b.pos.addScaledVector(n, -ov / 2);
+      const rel = _vc.subVectors(a.v, b.v).dot(n);
+      if (rel < 0) {
+        const jj = -0.7 * rel;
+        a.v.addScaledVector(n, jj); b.v.addScaledVector(n, -jj);
+        a.w.y += rand(-3, 3); b.w.y += rand(-3, 3);
+      }
+    } else if (am) { a.pos.addScaledVector(n, ov); reflect(a, n); }
+    else if (bm) { b.pos.addScaledVector(n, -ov); reflect(b, n.negate()); }
+    else if (ak && !bk) a.pos.addScaledVector(n, ov);
+    else if (bk && !ak) b.pos.addScaledVector(n, -ov);
+  }
+}
+function physics(h) {
+  for (const d of dice) {
+    if (d.state === 'moving') stepMoving(d, h);
+    else if (d.state === 'snap') stepSnap(d, h);
+    else if (d.state === 'drag') stepDrag(d, h);
+  }
+  collidePairs();
+}
+function throwDie(d, power = 1) {
+  const cx = d.owner === 'red' ? -4 : 4;
+  d.state = 'moving'; d.lock = null; d.touched = false; d.restT = 0; d.moveT = 0;
+  d.pos.y = Math.max(d.pos.y, 0.6);
+  d.v.set((cx - d.pos.x) * 0.7 + rand(-3, 3), rand(10, 13) * power, -d.pos.z * 0.5 + rand(-3, 3));
+  d.w.set(rand(-18, 18), rand(-10, 10), rand(-18, 18));
+}
+
+// ---------- sound ----------
+let actx = null, noiseBuf = null;
+addEventListener('pointerdown', () => {
+  if (actx) return;
+  try {
+    actx = new AudioContext();
+    noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.08, actx.sampleRate);
+    const ch = noiseBuf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / ch.length, 4);
+  } catch (e) { actx = null; }
+});
+function clack(vol, d) {
+  if (!actx) return;
+  const now = actx.currentTime;
+  if (now - d.lastClack < 0.06) return;
+  d.lastClack = now;
+  const src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = rand(1800, 3200); f.Q.value = 3;
+  const g = actx.createGain(); g.gain.value = vol * 0.5;
+  src.connect(f).connect(g).connect(actx.destination); src.start();
+}
+
+// ---------- game state ----------
+const game = {};
+function resetGame() {
+  Object.assign(game, {
+    round: 1, phase: 'roll', player: null, pick: null, pending: null, pendingT: 0,
+    scores: { red: 0, blue: 0 }, rounds: { red: [], blue: [] }, skipped: { red: false, blue: false },
+    rolled: false, winner: null, busyWho: null,
+  });
+  document.getElementById('final').classList.add('hidden');
+  ui();
+}
+const sumOf = p => dice.filter(d => d.owner === p).reduce((s, d) => s + d.value, 0);
+function afterSettle(cb) { game.pending = cb; game.pendingT = 0; }
+
+function rollAll() {
+  game.phase = 'busy'; game.busyWho = 'both'; game.rolled = true;
+  game.skipped = { red: false, blue: false };
+  dice.forEach(d => throwDie(d));
+  afterSettle(() => gotoOwn('red'));
+  ui();
+}
+function gotoOwn(p) { game.phase = 'own'; game.player = p; ui(); }
+function afterOwn(p) { p === 'red' ? gotoOwn('blue') : oppStage('red'); }
+function oppStage(p) {
+  if (p === 'red' && !game.skipped.red) p = 'blue';
+  if (p === 'blue' && !game.skipped.blue) p = null;
+  if (!p) return finishRound();
+  game.phase = 'opp'; game.player = p; ui();
+}
+function startPick(picker, target, next, back) {
+  game.phase = 'pick'; game.pick = { picker, target, next, back }; ui();
+}
+function pickDie(d) {
+  const { picker, next } = game.pick;
+  game.pick = null; game.phase = 'busy'; game.busyWho = picker;
+  throwDie(d, 0.9);
+  afterSettle(next);
+  ui();
+}
+function finishRound() {
+  const r = sumOf('red'), b = sumOf('blue');
+  const w = r > b ? 'red' : b > r ? 'blue' : null;
+  const pts = { red: r + (w === 'red' ? 5 : 0), blue: b + (w === 'blue' ? 5 : 0) };
+  for (const p of ['red', 'blue']) {
+    game.scores[p] += pts[p];
+    game.rounds[p].push(pts[p]);
+    pop(p, '+' + pts[p]);
+  }
+  game.phase = 'result'; game.winner = w; ui();
+}
+function nextRound() {
+  if (game.round >= 3) return showFinal();
+  game.round++; game.phase = 'roll'; game.winner = null; ui();
+}
+function showFinal() {
+  const { red, blue } = game.scores;
+  const w = red > blue ? 'red' : blue > red ? 'blue' : null;
+  const t = document.getElementById('ftitle');
+  t.textContent = w ? `${NAME[w]} WINS!` : "IT'S A TIE!";
+  t.className = w || '';
+  for (const p of ['red', 'blue']) {
+    const el = document.querySelector('.fs.' + p);
+    el.querySelector('.t').textContent = game.scores[p];
+    el.querySelector('.r').textContent = game.rounds[p].join(' · ');
+    el.classList.toggle('win', w === p);
+    el.classList.toggle('tie', !w);
+  }
+  document.getElementById('final').classList.remove('hidden');
+}
+document.getElementById('again').onclick = resetGame;
+
+// ---------- UI ----------
+const $inst = document.getElementById('inst'), $sub = document.getElementById('sub');
+const $round = document.getElementById('round'), $actions = document.getElementById('actions');
+const panels = { red: document.getElementById('p-red'), blue: document.getElementById('p-blue') };
+let activeWho = null;
+
+function setButtons(list) {
+  $actions.innerHTML = '';
+  for (const b of list) {
+    const el = document.createElement('button');
+    el.className = 'btn ' + b.cls;
+    el.textContent = b.label;
+    el.onclick = b.fn;
+    $actions.appendChild(el);
+  }
+}
+function ui() {
+  const g = game, p = g.player;
+  $round.textContent = `ROUND ${g.round} / 3`;
+  let text = '', sub = '', who = null, btns = [];
+  switch (g.phase) {
+    case 'roll':
+      text = 'ROLL THE DICE'; who = 'both';
+      btns = [{ label: 'ROLL', cls: 'roll', fn: rollAll }];
+      break;
+    case 'busy':
+      text = 'ROLLING…'; who = g.busyWho;
+      break;
+    case 'own':
+      text = `${NAME[p]}: REROLL OR SKIP`; who = p;
+      btns = [
+        { label: 'REROLL OWN DIE', cls: 'pair c-' + p, fn: () => startPick(p, p, () => afterOwn(p), () => gotoOwn(p)) },
+        { label: 'SKIP', cls: 'pair c-gray', fn: () => { g.skipped[p] = true; afterOwn(p); } },
+      ];
+      break;
+    case 'opp': {
+      const o = other(p);
+      const next = () => oppStage(p === 'red' ? 'blue' : null);
+      text = `${NAME[p]}: REROLL A ${NAME[o]} DIE?`; who = p;
+      btns = [
+        { label: `REROLL ${NAME[o]} DIE`, cls: 'pair c-' + p, fn: () => startPick(p, o, next, () => { g.phase = 'opp'; ui(); }) },
+        { label: 'SKIP', cls: 'pair c-gray', fn: next },
+      ];
+      break;
+    }
+    case 'pick': {
+      const { picker, target, back } = g.pick;
+      text = picker === target ? `${NAME[picker]}: TAP YOUR DIE` : `${NAME[picker]}: TAP A ${NAME[target]} DIE`;
+      who = picker;
+      btns = [{ label: 'BACK', cls: 'small', fn: () => { g.pick = null; back(); } }];
+      break;
+    }
+    case 'result':
+      who = g.winner || 'both';
+      text = g.winner ? `${NAME[g.winner]} WINS ROUND ${g.round}` : `ROUND ${g.round} IS A TIE`;
+      sub = g.winner ? '+5 BONUS' : 'NO BONUS';
+      btns = [{ label: g.round < 3 ? 'NEXT ROUND' : 'FINAL SCORE', cls: 'roll', fn: nextRound }];
+      break;
+  }
+  $inst.textContent = text;
+  $inst.className = who || 'neutral';
+  $sub.textContent = sub;
+  activeWho = who;
+  for (const q of ['red', 'blue']) {
+    const el = panels[q];
+    el.classList.toggle('active', who === q || who === 'both');
+    el.querySelector('.ptotal').textContent = g.scores[q];
+    el.querySelector('.prounds').innerHTML = [0, 1, 2].map(i =>
+      `<div class="${i === g.round - 1 && g.phase !== 'result' ? 'cur' : ''}"><small>R${i + 1}</small>${g.rounds[q][i] ?? '–'}</div>`).join('');
+  }
+  setButtons(btns);
+  fit();
+}
+function pop(p, text) {
+  const el = document.createElement('div');
+  el.className = 'pop'; el.textContent = text;
+  panels[p].appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+function updateDiceSums() {
+  for (const p of ['red', 'blue']) {
+    const settled = dice.every(d => d.owner !== p || d.state === 'rest');
+    const txt = game.rolled && settled ? String(sumOf(p)) : '–';
+    const b = panels[p].querySelector('.pdice b');
+    if (b.textContent !== txt) b.textContent = txt;
+  }
+}
+
+// ---------- input ----------
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DRAG_Y);
+const hitPt = new THREE.Vector3();
+let press = null, hovered = null;
+
+function setRay(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+}
+function dieAt(e) {
+  setRay(e);
+  const hit = raycaster.intersectObjects(dice.map(d => d.mesh), false)[0];
+  return hit ? hit.object.userData.die : null;
+}
+const eligible = d => game.phase === 'pick' && game.pick && d.owner === game.pick.target && d.state === 'rest';
+const blocked = () => !document.getElementById('final').classList.contains('hidden');
+
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', e => {
+  if (blocked()) return;
+  const d = dieAt(e);
+  if (!d || d.state !== 'rest') return;
+  press = { die: d, x: e.clientX, y: e.clientY, dragging: false, off: new THREE.Vector3(), hist: [] };
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!press) {
+    hovered = blocked() ? null : dieAt(e);
+    cv.style.cursor = hovered ? (eligible(hovered) ? 'pointer' : 'grab') : 'default';
+    return;
+  }
+  const d = press.die;
+  if (!press.dragging) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6 || d.state !== 'rest') return;
+    press.dragging = true; d.state = 'drag';
+    setRay(e); raycaster.ray.intersectPlane(dragPlane, hitPt);
+    press.off.set(d.pos.x - hitPt.x, 0, d.pos.z - hitPt.z);
+    cv.style.cursor = 'grabbing';
+  }
+  setRay(e);
+  if (!raycaster.ray.intersectPlane(dragPlane, hitPt)) return;
+  d.dragTarget.set(hitPt.x + press.off.x, DRAG_Y, hitPt.z + press.off.z);
+  const now = performance.now();
+  press.hist.push({ t: now, x: hitPt.x, z: hitPt.z });
+  while (press.hist.length > 2 && now - press.hist[0].t > 90) press.hist.shift();
+});
+function release(e) {
+  if (!press) return;
+  const { die: d, dragging, hist } = press;
+  press = null;
+  cv.style.cursor = 'default';
+  if (!dragging) { if (eligible(d)) pickDie(d); return; }
+  let vx = 0, vz = 0;
+  const now = performance.now();
+  if (hist.length >= 2 && now - hist[hist.length - 1].t < 60) {
+    const a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
+    vx = (b.x - a.x) / dt; vz = (b.z - a.z) / dt;
+  }
+  const speed = Math.hypot(vx, vz);
+  d.state = 'moving'; d.lock = d.value; d.touched = false; d.restT = 0; d.moveT = 0;
+  if (speed > FLICK_SPEED) {
+    const k = Math.min(1, 30 / speed);
+    d.v.set(vx * k, 4 + Math.min(speed, 30) * 0.2, vz * k);
+    const s = 8 + Math.min(speed, 30) * 0.6;
+    d.w.set(rand(-s, s), rand(-s, s), rand(-s, s));
+  } else {
+    d.v.set(vx * 0.25, 0, vz * 0.25);
+    d.w.set(0, 0, 0);
+  }
+}
+cv.addEventListener('pointerup', release);
+cv.addEventListener('pointercancel', release);
+
+// ---------- layout ----------
+function fit() {
+  const W = innerWidth, H = innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  const wide = W > 760;
+  const topPx = document.getElementById('top').offsetHeight + 8;
+  const botPx = wide ? 140 : 134 + (panels.red.offsetHeight || 140) + 10;
+  const effW = wide ? Math.max(260, W - 2 * 210) : W - 16;
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const distW = (TABLE.hx + 0.9) / (tanV * camera.aspect * (effW / W));
+  const vFrac = Math.max(0.25, (H - topPx - botPx) / H);
+  const distH = (TABLE.hz + 1.3) / (tanV * vFrac);
+  const dist = Math.max(distW, distH);
+  const el = THREE.MathUtils.degToRad(58);
+  camera.position.set(0, Math.sin(el) * dist, Math.cos(el) * dist);
+  camera.lookAt(0, 0, 0);
+  camera.setViewOffset(W, H, 0, -(topPx - botPx) / 2, W, H);
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', fit);
+
+// ---------- loop ----------
+let last = performance.now(), acc = 0, time = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; acc += dt; time += dt;
+  let n = 0;
+  while (acc >= STEP && n++ < 14) { physics(STEP); acc -= STEP; }
+  if (n >= 14) acc = 0;
+
+  for (const d of dice) {
+    d.mesh.position.copy(d.pos);
+    d.mesh.quaternion.copy(d.q);
+    const el = eligible(d);
+    d.ring.visible = el;
+    if (el) {
+      const hot = hovered === d;
+      d.ring.position.set(d.pos.x, 0.01, d.pos.z);
+      d.ring.material.opacity = hot ? 1 : 0.45 + 0.4 * Math.sin(time * 7);
+      d.ring.scale.setScalar(hot ? 1.15 : 1);
+    }
+  }
+  for (const p of ['red', 'blue']) {
+    const on = activeWho === p || activeWho === 'both';
+    const m = halves[p].material;
+    m.opacity += ((on ? 0.22 + 0.05 * Math.sin(time * 3) : 0.05) - m.opacity) * Math.min(1, dt * 6);
+  }
+  if (game.pending && dice.every(d => d.state === 'rest')) {
+    game.pendingT += dt;
+    if (game.pendingT > 0.35) { const f = game.pending; game.pending = null; f(); }
+  } else game.pendingT = 0;
+  updateDiceSums();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+resetGame();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
