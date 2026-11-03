@@ -528,18 +528,18 @@ function ui() {
       break;
     case 'own':
       text = `${NAME[p]}: REROLL OR SKIP`; who = p;
+      sub = 'SKIP OWN = REROLL ONE OPPONENT DIE AFTER BOTH PLAYERS CHOOSE';
       btns = [
         { label: 'REROLL OWN DIE', cls: 'pair c-' + p, fn: () => startPick(p, p, () => afterOwn(p), () => gotoOwn(p)) },
-        { label: 'SKIP', cls: 'pair c-gray', fn: () => { g.skipped[p] = true; afterOwn(p); } },
+        { label: 'SKIP OWN · REROLL OPPONENT', cls: 'pair c-gray', fn: () => { g.skipped[p] = true; afterOwn(p); } },
       ];
       break;
     case 'opp': {
       const o = other(p);
       const next = () => oppStage(p === 'red' ? 'blue' : null);
-      text = `${NAME[p]}: REROLL A ${NAME[o]} DIE?`; who = p;
+      text = `${NAME[p]}: CHOOSE A ${NAME[o]} DIE TO REROLL`; who = p;
       btns = [
-        { label: `REROLL ${NAME[o]} DIE`, cls: 'pair c-' + p, fn: () => startPick(p, o, next, () => { g.phase = 'opp'; ui(); }) },
-        { label: 'SKIP', cls: 'pair c-gray', fn: next },
+        { label: `CHOOSE ${NAME[o]} DIE`, cls: 'roll c-' + p, fn: () => startPick(p, o, next, () => { g.phase = 'opp'; ui(); }) },
       ];
       break;
     }
