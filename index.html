@@ -130,7 +130,7 @@ const other = p => p === 'red' ? 'blue' : 'red';
 const TABLE = { hx: 8, hz: 4.6 };
 const BOUNDS = { red: { minX: -TABLE.hx, maxX: -0.2 }, blue: { minX: 0.2, maxX: TABLE.hx } };
 const G = -40, STEP = 1 / 240, INV_M = 1, INV_I = 6, MU = 0.45;
-const MIN_D = 1.12, DRAG_Y = 1.3, FLICK_SPEED = 13;
+const MIN_D = 1.12;
 const UP = new THREE.Vector3(0, 1, 0);
 // BoxGeometry material order: +x,-x,+y,-y,+z,-z
 const FACE_VALUES = [1, 6, 2, 5, 3, 4];
@@ -243,8 +243,8 @@ for (const owner of ['red', 'blue']) for (let i = 0; i < 3; i++) {
   ring.rotation.x = -Math.PI / 2; ring.visible = false; scene.add(ring);
   const d = {
     owner, idx: i, mesh, ring, pos: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3(),
-    q: new THREE.Quaternion(), state: 'rest', value: 1, lock: null, touched: false, restT: 0, moveT: 0,
-    dragTarget: new THREE.Vector3(), snapQ: new THREE.Quaternion(), snapVal: 1, lastClack: 0,
+    q: new THREE.Quaternion(), state: 'rest', value: 1, touched: false, restT: 0, moveT: 0,
+    snapQ: new THREE.Quaternion(), snapVal: 1, lastClack: 0,
   };
   mesh.userData.die = d;
   placeHome(d);
@@ -256,12 +256,12 @@ function placeHome(d) {
   d.q.setFromUnitVectors(FACE_N[d.value], UP)
     .premultiply(new THREE.Quaternion().setFromAxisAngle(UP, rand(-.4, .4)));
   d.pos.set(s * 4, 0.5, (d.idx - 1) * 2.2);
-  d.v.set(0, 0, 0); d.w.set(0, 0, 0); d.state = 'rest'; d.lock = null;
+  d.v.set(0, 0, 0); d.w.set(0, 0, 0); d.state = 'rest';
 }
 
 // ---------- physics ----------
 const _vc = new THREE.Vector3(), _rn = new THREE.Vector3(), _vt = new THREE.Vector3(), _rt = new THREE.Vector3();
-const _ti = new THREE.Vector3(), _ax = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+const _ti = new THREE.Vector3(), _ax = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _f = new THREE.Vector3(), _dx = new THREE.Vector3();
 const rs = CORNERS.map(() => new THREE.Vector3());
 
@@ -336,18 +336,13 @@ function stepMoving(d, h) {
   } else d.w.multiplyScalar(Math.exp(-0.1 * h));
   if (impact > 3) clack(Math.min(1, impact / 16), d);
 
-  // a die that was dragged/flicked steers back to its previous face so its result never changes
-  if (d.lock && d.touched && d.v.length() < 7) {
-    d.q.slerp(targetQuat(d, d.lock, _q2), 1 - Math.exp(-6 * h));
-    d.w.multiplyScalar(Math.exp(-4 * h));
-  }
   d.moveT += h;
   if (minY < 0.05 && d.v.length() < 0.3 && d.w.length() < 1.2) d.restT += h; else d.restT = 0;
-  if (d.restT > 0.12 || d.moveT > 7 || (d.lock && d.touched && d.moveT > 0.4 && d.v.length() < 1.2)) startSnap(d);
+  if (d.restT > 0.12 || d.moveT > 7) startSnap(d);
 }
 function startSnap(d) {
   d.state = 'snap';
-  d.snapVal = d.lock || nearestFace(d);
+  d.snapVal = nearestFace(d);
   targetQuat(d, d.snapVal, d.snapQ);
   d.v.set(0, 0, 0); d.w.set(0, 0, 0);
 }
@@ -364,12 +359,8 @@ function stepSnap(d, h) {
   clampToHalf(d, k);
   if (d.q.angleTo(d.snapQ) < 0.003 && Math.abs(d.pos.y - 0.5) < 0.003) {
     d.q.copy(d.snapQ); d.pos.y = 0.5;
-    d.state = 'rest'; d.value = d.snapVal; d.lock = null;
+    d.state = 'rest'; d.value = d.snapVal;
   }
-}
-function stepDrag(d, h) {
-  d.pos.lerp(d.dragTarget, 1 - Math.exp(-25 * h));
-  clampToHalf(d, 1);
 }
 function reflect(d, n) {
   const vn = d.v.dot(n);
@@ -383,7 +374,7 @@ function collidePairs() {
     const a = dice[i], b = dice[j];
     if (a.owner !== b.owner) continue;
     const am = a.state === 'moving', bm = b.state === 'moving';
-    const ak = a.state === 'drag' || a.state === 'snap', bk = b.state === 'drag' || b.state === 'snap';
+    const ak = a.state === 'snap', bk = b.state === 'snap';
     if (!am && !bm && !ak && !bk) continue;
     _dx.subVectors(a.pos, b.pos);
     const dist = _dx.length();
@@ -406,14 +397,12 @@ function collidePairs() {
 function physics(h) {
   for (const d of dice) {
     if (d.state === 'moving') stepMoving(d, h);
-    else if (d.state === 'snap') stepSnap(d, h);
-    else if (d.state === 'drag') stepDrag(d, h);
-  }
+    else if (d.state === 'snap') stepSnap(d, h);  }
   collidePairs();
 }
 function throwDie(d, power = 1) {
   const cx = d.owner === 'red' ? -4 : 4;
-  d.state = 'moving'; d.lock = null; d.touched = false; d.restT = 0; d.moveT = 0;
+  d.state = 'moving'; d.touched = false; d.restT = 0; d.moveT = 0;
   d.pos.y = Math.max(d.pos.y, 0.6);
   d.v.set((cx - d.pos.x) * 0.7 + rand(-3, 3), rand(10, 13) * power, -d.pos.z * 0.5 + rand(-3, 3));
   d.w.set(rand(-18, 18), rand(-10, 10), rand(-18, 18));
@@ -603,17 +592,11 @@ function updateDiceSums() {
 
 // ---------- input ----------
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
-const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DRAG_Y);
-const hitPt = new THREE.Vector3();
-let press = null, hovered = null;
 
-function setRay(e) {
+function dieAt(e) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-}
-function dieAt(e) {
-  setRay(e);
   const hit = raycaster.intersectObjects(dice.map(d => d.mesh), false)[0];
   return hit ? hit.object.userData.die : null;
 }
@@ -624,57 +607,13 @@ const cv = renderer.domElement;
 cv.addEventListener('pointerdown', e => {
   if (blocked()) return;
   const d = dieAt(e);
-  if (!d || d.state !== 'rest') return;
-  press = { die: d, x: e.clientX, y: e.clientY, dragging: false, off: new THREE.Vector3(), hist: [] };
-  cv.setPointerCapture(e.pointerId);
+  if (d && eligible(d)) pickDie(d);
 });
+let hovered = null;
 cv.addEventListener('pointermove', e => {
-  if (!press) {
-    hovered = blocked() ? null : dieAt(e);
-    cv.style.cursor = hovered ? (eligible(hovered) ? 'pointer' : 'grab') : 'default';
-    return;
-  }
-  const d = press.die;
-  if (!press.dragging) {
-    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6 || d.state !== 'rest') return;
-    press.dragging = true; d.state = 'drag';
-    setRay(e); raycaster.ray.intersectPlane(dragPlane, hitPt);
-    press.off.set(d.pos.x - hitPt.x, 0, d.pos.z - hitPt.z);
-    cv.style.cursor = 'grabbing';
-  }
-  setRay(e);
-  if (!raycaster.ray.intersectPlane(dragPlane, hitPt)) return;
-  d.dragTarget.set(hitPt.x + press.off.x, DRAG_Y, hitPt.z + press.off.z);
-  const now = performance.now();
-  press.hist.push({ t: now, x: hitPt.x, z: hitPt.z });
-  while (press.hist.length > 2 && now - press.hist[0].t > 90) press.hist.shift();
+  hovered = blocked() ? null : dieAt(e);
+  cv.style.cursor = hovered && eligible(hovered) ? 'pointer' : 'default';
 });
-function release(e) {
-  if (!press) return;
-  const { die: d, dragging, hist } = press;
-  press = null;
-  cv.style.cursor = 'default';
-  if (!dragging) { if (eligible(d)) pickDie(d); return; }
-  let vx = 0, vz = 0;
-  const now = performance.now();
-  if (hist.length >= 2 && now - hist[hist.length - 1].t < 60) {
-    const a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
-    vx = (b.x - a.x) / dt; vz = (b.z - a.z) / dt;
-  }
-  const speed = Math.hypot(vx, vz);
-  d.state = 'moving'; d.lock = d.value; d.touched = false; d.restT = 0; d.moveT = 0;
-  if (speed > FLICK_SPEED) {
-    const k = Math.min(1, 30 / speed);
-    d.v.set(vx * k, 4 + Math.min(speed, 30) * 0.2, vz * k);
-    const s = 8 + Math.min(speed, 30) * 0.6;
-    d.w.set(rand(-s, s), rand(-s, s), rand(-s, s));
-  } else {
-    d.v.set(vx * 0.25, 0, vz * 0.25);
-    d.w.set(0, 0, 0);
-  }
-}
-cv.addEventListener('pointerup', release);
-cv.addEventListener('pointercancel', release);
 
 // ---------- layout ----------
 function fit() {
